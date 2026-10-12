@@ -1,0 +1,106 @@
+plugins {
+    id 'net.neoforged.moddev' version '2.0.147'
+}
+
+version = project.mod_version
+group = project.mod_group_id
+
+base {
+    archivesName = project.mod_id
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(project.java_version as Integer)
+    }
+}
+
+neoForge {
+    version = project.neoforge_version
+
+    runs {
+        client {
+            client()
+        }
+        gameTestServer {
+            type = "gameTestServer"
+        }
+    }
+
+    mods {
+        uncraftinglimit {
+            sourceSet sourceSets.main
+        }
+    }
+}
+
+// Repositories are declared centrally in settings.gradle (dependencyResolutionManagement,
+// PREFER_SETTINGS), so ModDevGradle's internal toolchain configurations can resolve through
+// the BMCLAPI mirror of maven.neoforged.net as well.
+
+dependencies {
+    // Required dependency: The Twilight Forest (full mod jar, so dev runs actually load it).
+    // Offline fallback: with -PofflineDeps=true the identical jar from libs/ (gitignored) is used
+    // instead of CurseMaven. The two are never combined, so no duplicate classes end up on the classpath.
+    if (project.hasProperty('offlineDeps')) {
+        implementation fileTree(dir: 'libs', include: ['twilightforest-*.jar'])
+    } else {
+        implementation "curse.maven:twilightforest-${project.twilightforest_curse_id}:${project.twilightforest_file_id}"
+    }
+    // Dev-run helper (NOT compiled against, NOT packaged): RDPMouse fixes the
+    // camera-spinning-under-WSLg/RDP issue; toggle with F8 in game.
+    // JAR lives in devmods/ (gitignored) and is absent in CI.
+    if (file('devmods/rdpmouse-neoforge-1.21.1-1.0.0.jar').exists()) {
+        runtimeOnly files('devmods/rdpmouse-neoforge-1.21.1-1.0.0.jar')
+    }
+}
+
+// Fallback for networks where the NeoForge repository is unreachable and the Minecraft game
+// libraries cannot be resolved through net.neoforged:minecraft-dependencies. Regenerate the
+// file with tools/generate_mc_libs_fallback.py when the Minecraft/NeoForge version changes.
+if (project.hasProperty('mcLibsFallback')) {
+    apply from: 'gradle/mc-libs-fallback.gradle'
+
+    // The game layer of a dev run is built from ModDevGradle's legacyClasspath file, not from
+    // the java -cp argument. When the game libraries cannot be resolved through the module
+    // metadata (see above), that file ends up without them and the run fails with
+    // NoClassDefFoundError: com/mojang/serialization/DynamicOps. Append them explicitly.
+    tasks.matching { it.name.endsWith('LegacyClasspath') }.configureEach {
+        outputs.upToDateWhen { false }
+        doLast {
+            def outputFile = outputs.files.find { it.name.endsWith('.txt') }
+            if (outputFile == null) return
+            def existing = outputFile.exists() ? outputFile.getText('UTF-8') : ''
+            def appended = []
+            configurations.mcGameLibs.each { f ->
+                if (!existing.contains(f.absolutePath)) {
+                    appended << f.absolutePath
+                }
+            }
+            if (!appended.isEmpty()) {
+                // The file is one path per line.
+                def prefix = existing.isEmpty() ? '' : (existing.endsWith('\n') ? existing : existing + '\n')
+                outputFile.write(prefix + appended.join('\n') + '\n', 'UTF-8')
+                logger.lifecycle("Appended ${appended.size()} game libraries to ${outputFile.name}")
+            }
+        }
+    }
+}
+
+tasks.processResources {
+    def expanded = [
+            'mod_id'                       : project.mod_id,
+            'mod_name'                     : project.mod_name,
+            'mod_version'                  : project.mod_version,
+            'mod_authors'                  : project.mod_authors,
+            'mod_license'                  : project.mod_license,
+            'mod_description'              : project.mod_description,
+            'minecraft_version'            : project.minecraft_version,
+            'neoforge_version_range'       : project.neoforge_version_range,
+            'twilightforest_version_range' : project.twilightforest_version_range
+    ]
+    inputs.properties(expanded)
+    filesMatching('META-INF/neoforge.mods.toml') {
+        expand expanded
+    }
+}

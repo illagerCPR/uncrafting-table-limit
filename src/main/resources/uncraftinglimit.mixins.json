@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "minVersion": "0.8.5",
+  "package": "io.github.illagercpr.uncraftinglimit.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "UncraftingMenuMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

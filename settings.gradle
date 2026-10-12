@@ -1,0 +1,52 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        maven { url = uri('https://plugins.gradle.org/m2') }
+        maven { url = uri('https://maven.neoforged.net/releases') }
+        maven { url = uri('https://mirrors4.qlu.edu.cn/bmclapi') }
+        maven { url = uri('https://maven.parchmentmc.org') }
+    }
+}
+
+rootProject.name = 'uncrafting-table-limit'
+
+// Central repository declaration for the project *and* for ModDevGradle's internal
+// toolchain configurations (NeoForm runtime, external tools, Minecraft artifacts).
+//
+// PREFER_SETTINGS is used because ModDevGradle pins part of its toolchain to
+// maven.neoforged.net, which is unreachable from some networks. All repositories the
+// toolchain needs are declared here instead.
+//
+// The qlu mirror is a general Maven Central proxy (it also carries the NeoForge tree), so
+// it is listed first. The `NeoForged` entry below can optionally be pointed at
+// tools/neoforge_mirror_proxy.py with -PneoforgeProxy=... ; that proxy serves the NeoForge
+// layout from the mirror and falls back to the local Gradle cache for artifacts the mirror
+// does not carry.
+dependencyResolutionManagement {
+    repositoriesMode = RepositoriesMode.PREFER_SETTINGS
+    repositories {
+        if (providers.gradleProperty('neoforgeProxy').isPresent()) {
+            // Local proxy REPLACES the official NeoForge repository entirely when given:
+            // it serves the same layout from a mirror, the local Gradle cache and a seed
+            // directory, and logs every request so missing artifacts are easy to spot.
+            maven {
+                name = 'NeoForge (local proxy)'
+                url = uri(providers.gradleProperty('neoforgeProxy').get())
+            }
+        } else {
+            maven {
+                name = 'NeoForged'
+                url = uri('https://maven.neoforged.net/releases')
+            }
+        }
+        maven {
+            name = 'Mojang libraries'
+            url = uri('https://libraries.minecraft.net')
+        }
+        mavenCentral()
+        maven {
+            name = 'CurseMaven'
+            url = uri('https://www.cursemaven.com')
+        }
+    }
+}
