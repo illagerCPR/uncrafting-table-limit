@@ -74,6 +74,14 @@ python3 tools/neoforge_mirror_proxy.py 8903 &          # 本地代理（镜像+�
 - 实现要点：`ItemCostPolicy` 解析 `namespace:item[:count]`（坏条目跳过+一次性 WARN）；**任一**条目可付即放行（与 M0 既定配置注释一致）；HEAD 判付、RETURN 成功后扣减；扣减只遍历玩家背包 36 格（不含光标/盔甲/副手）；空列表=模式不可用并拒一切拆解。
 - 决策 #4 核对完成：`TFItems.TORCHBERRIES` → 注册名 `twilightforest:torchberries`。
 
+### M5 验收结果（2026-10-13 回填）
+
+- 版本 `0.1.0 → 1.0.0`（gradle.properties 唯一来源）；`CHANGELOG.md` 建立；README 复查为纯用户向、无需改动。
+- 1.0.0 下本地全量复跑：`build` 产出 `uncraftinglimit-1.0.0.jar`；`runGameTestServer` **All 19 required tests passed**、异常扫描仅剩已知无害项。
+- 发布提交 `08721a5` CI 绿（冷缓存全流程：build + runGameTestServer）。
+- tag `v1.0.0` GPG 签名（密钥指纹核对无误）并推送；GitHub Release 已发布并附 `uncraftinglimit-1.0.0.jar`：<https://github.com/illagerCPR/uncrafting-table-limit/releases/tag/v1.0.0>。
+- `runClient` 人工验收（动作栏文案与手感）**仍待用户进行**。
+
 ---
 
 ## 三、已核对的硬事实（证据：发布版 jar + 上游源码）
