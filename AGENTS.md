@@ -53,6 +53,13 @@ python3 tools/neoforge_mirror_proxy.py 8903 &          # 本地代理（镜像+�
 - `runClient` 人工验收（动作栏文案与手感）**待用户进行**。
 - `build` 产出 jar；本地链路已简化为两个 `-P` 参数（mcLibsFallback 不再需要）。
 
+### M2 验收结果（2026-10-13 回填）
+
+- `runGameTestServer`：**All 9 required tests passed**（M1 六项 + G5 禁止模式拒取/界面仍可开 + 重铸路径在"冷却中"与 DISABLED 两种状态下均不受影响的显式回归 + `block_menu_open` 经 RightClickBlock 事件 `setUseBlock(FALSE)` 拒绝交互）。
+- 异常日志扫描：仅剩 VersionChecker PKIX 已知无害项。
+- `runClient` 人工验收（提示文案与手感）**待用户进行**。
+- CI：M1 批次（`2d5e614`）已绿（冷缓存验证 vendored `.module` 修复有效）。
+
 ---
 
 ## 三、已核对的硬事实（证据：发布版 jar + 上游源码）
@@ -75,8 +82,8 @@ python3 tools/neoforge_mirror_proxy.py 8903 &          # 本地代理（镜像+�
 ### 3.2 NeoForge 21.1.248（`javap` 核对）
 
 - `BlockEntityTypeAddBlocksEvent`（mod bus 事件）：`modify(BlockEntityType<?>, Block...)` —— 给已注册方块追加 BE 类型的正规入口（耐久模式要用）。
-- `PlayerInteractEvent$RightClickBlock`：可取消，`setUseBlock(TriState)` / `getCancellationResult()`。
-- `EventBusSubscriber` 在 `net.neoforged.fml.common`（**不在** neoforge jar 里，在 `fancymodloader/loader`），属性 `value()` / `modid()` / `bus()`，`Bus` 枚举只有 `GAME` / `MOD` 且默认 `GAME`。
+- `PlayerInteractEvent$RightClickBlock`：可取消，`setUseBlock(TriState)` / `getUseBlock()`；**拒绝交互用 `TriState.FALSE`**（没有 `DENY` 常量；TriState = TRUE/DEFAULT/FALSE）。
+- `EventBusSubscriber` 在 `net.neoforged.fml.common`（**不在** neoforge jar 里，在 `fancymodloader/loader`），属性 `value()` / `modid()` / `bus()`；**21.1.248 里 `bus` 属性已标记 @Deprecated**（GAME 是默认值，直接写 `@EventBusSubscriber(modid=...)` 即可）。
 - `ModConfigSpec.Builder#defineEnum(String, V)` 存在（`EnumValue`）；`defineListAllowEmpty(String, List, Predicate)` 存在。
 - `ModConfigSpec.ConfigValue#set(T)` 运行时改值可用（GameTest 里切换配置用，记得恢复）。
 - Data Attachment：`AttachmentType.Builder#serialize(Codec)` / `#copyOnDeath()` 均存在；`NeoForgeRegistries.Keys.ATTACHMENT_TYPES` + `DeferredRegister.create(ResourceKey, modid)` 注册；`IAttachmentHolder#getData(Supplier<AttachmentType<T>>)` 默认方法可直接用。

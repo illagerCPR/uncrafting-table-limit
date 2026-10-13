@@ -1,3 +1,5 @@
 {
-  "message.uncraftinglimit.cooldown_waiting": "Uncrafting on cooldown: %s remaining"
+  "message.uncraftinglimit.cooldown_waiting": "Uncrafting on cooldown: %s remaining",
+  "message.uncraftinglimit.disabled": "Uncrafting is disabled on this server",
+  "message.uncraftinglimit.menu_blocked": "The uncrafting table cannot be used on this server"
 }

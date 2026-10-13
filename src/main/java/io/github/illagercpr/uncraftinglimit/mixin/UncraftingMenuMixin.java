@@ -149,18 +149,21 @@ public abstract class UncraftingMenuMixin {
 		LimitMode mode = Config.INSTANCE.mode.get();
 		return switch (mode) {
 			case COOLDOWN -> this.uncraftinglimit$refuseDuringCooldown(clicker);
-			// Remaining modes arrive with their own batches (M2+).
-			case DISABLED, DURABILITY, ITEM_COST -> false;
+			case DISABLED -> this.uncraftinglimit$refuseDisabled(clicker);
+			// Remaining modes arrive with their own batches (M3+).
+			case DURABILITY, ITEM_COST -> false;
 		};
+	}
+
+	@Unique
+	private boolean uncraftinglimit$isCreativeExempt(Player clicker) {
+		return Config.INSTANCE.exemptCreative.get() && clicker.getAbilities().instabuild;
 	}
 
 	@Unique
 	private boolean uncraftinglimit$refuseDuringCooldown(Player clicker) {
 		long cooldownTicks = Config.INSTANCE.cooldownTicks.get();
-		if (cooldownTicks <= 0) {
-			return false;
-		}
-		if (Config.INSTANCE.exemptCreative.get() && clicker.getAbilities().instabuild) {
+		if (cooldownTicks <= 0 || this.uncraftinglimit$isCreativeExempt(clicker)) {
 			return false;
 		}
 		long now = this.level.getGameTime();
@@ -171,6 +174,17 @@ public abstract class UncraftingMenuMixin {
 		RefusalFeedback.notifyDenied(clicker, this.level, () -> Component.translatable(
 				"message.uncraftinglimit.cooldown_waiting",
 				CooldownPolicy.formatDuration(CooldownPolicy.remainingTicks(now, lastUncraft, cooldownTicks))));
+		return true;
+	}
+
+	/** Mode DISABLED: preview stays available, taking ingredients out is refused outright. */
+	@Unique
+	private boolean uncraftinglimit$refuseDisabled(Player clicker) {
+		if (this.uncraftinglimit$isCreativeExempt(clicker)) {
+			return false;
+		}
+		RefusalFeedback.notifyDenied(clicker, this.level,
+				() -> Component.translatable("message.uncraftinglimit.disabled"));
 		return true;
 	}
 

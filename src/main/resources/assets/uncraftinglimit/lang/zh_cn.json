@@ -1,3 +1,5 @@
 {
-  "message.uncraftinglimit.cooldown_waiting": "拆解冷却中，剩余 %s"
+  "message.uncraftinglimit.cooldown_waiting": "拆解冷却中，剩余 %s",
+  "message.uncraftinglimit.disabled": "本服务器已禁用拆解功能",
+  "message.uncraftinglimit.menu_blocked": "本服务器无法使用拆解台"
 }
