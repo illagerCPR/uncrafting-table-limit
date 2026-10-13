@@ -2,6 +2,12 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)；版本号唯一来源为 `gradle.properties` 的 `mod_version`。
 
+## 1.2.1 - 2026-10-13
+
+### 修复
+
+- **耐久模式下 GUI 内剩余次数不实时刷新**（1.2.0 引入）：`Level#sendBlockUpdated` 只广播方块状态、不携带方块实体数据包，耐久变更需显式向跟踪该区块的玩家发送 `ClientboundBlockEntityDataPacket`。现拆解消耗耐久后界面内的次数会立即更新。
+
 ## 1.2.0 - 2026-10-13
 
 ### 修复

@@ -49,7 +49,7 @@
 
 - 新放置的拆解台耐久为 `durability.max_durability`（默认 1000，即 1000 次拆解）。
 - 耐久耗尽后，默认**销毁该拆解台**（`durability.destroy_on_deplete = true`）；设为 `false` 则方块保留但失效。
-- 剩余耐久低于 `durability.warn_threshold` 时，使用时会给出提示；打开拆解台界面也会**直接看到剩余耐久次数**（低于阈值或耗尽时变红）。
+- 剩余耐久低于 `durability.warn_threshold` 时，使用时会给出提示；打开拆解台界面也会**直接看到剩余耐久次数**实时更新（低于阈值或耗尽时变红）。
 - 拆掉再放回**不会**重置耐久，耐久跟随方块本身。
 
 ### 4. `ITEM_COST` —— 物品代价
