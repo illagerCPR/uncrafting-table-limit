@@ -25,18 +25,35 @@ rootProject.name = 'uncrafting-table-limit'
 dependencyResolutionManagement {
     repositoriesMode = RepositoriesMode.PREFER_SETTINGS
     repositories {
+        def neoforgeUrl = providers.gradleProperty('neoforgeProxy')
+                .getOrElse('https://maven.neoforged.net/releases')
+
+        // `net.neoforged:minecraft-dependencies` is published as Gradle Module Metadata
+        // ONLY - there is no POM on maven.neoforged.net. ModDevGradle resolves it through
+        // a module-metadata-only repository (RepositoriesPlugin does exactly this with
+        // `metadataSources { gradleMetadata() }` + `includeModule(...)`). PREFER_SETTINGS
+        // replaces that repository, so it is re-created here with the same shape; otherwise
+        // resolution can fall back to the nonexistent POM and fail with
+        // "Could not find net.neoforged:minecraft-dependencies".
+        maven {
+            name = 'NeoForge (minecraft-dependencies module metadata)'
+            url = uri(neoforgeUrl)
+            content { includeModule('net.neoforged', 'minecraft-dependencies') }
+            metadataSources { gradleMetadata() }
+        }
+
         if (providers.gradleProperty('neoforgeProxy').isPresent()) {
             // Local proxy REPLACES the official NeoForge repository entirely when given:
             // it serves the same layout from a mirror, the local Gradle cache and a seed
             // directory, and logs every request so missing artifacts are easy to spot.
             maven {
                 name = 'NeoForge (local proxy)'
-                url = uri(providers.gradleProperty('neoforgeProxy').get())
+                url = uri(neoforgeUrl)
             }
         } else {
             maven {
                 name = 'NeoForged'
-                url = uri('https://maven.neoforged.net/releases')
+                url = uri(neoforgeUrl)
             }
         }
         maven {
