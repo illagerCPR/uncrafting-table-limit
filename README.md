@@ -115,4 +115,4 @@
 
 ## 授权
 
-GPL-3.0，见 `LICENSE`。
+LGPL-2.1，见 `LICENSE`。

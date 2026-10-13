@@ -2,6 +2,12 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)；版本号唯一来源为 `gradle.properties` 的 `mod_version`。
 
+## 1.0.1 - 2026-10-13
+
+### 修复
+
+- **许可协议元数据错误**：仓库 `LICENSE` 文件实际为 **LGPL-2.1**，而 `mod_license`（展开进 `neoforge.mods.toml`）被错误地写成 GPL-3.0，导致游戏内模组列表与 jar 元数据中的许可协议与 LICENSE 文件不符。已随本版本修正为 LGPL-2.1（仅元数据修正，无任何行为变更）。
+
 ## 1.0.0 - 2026-10-13
 
 首个发布版本。为暮色森林的拆解台提供四种互斥、可配置的使用限制（配置项 `mode` 单选）。
