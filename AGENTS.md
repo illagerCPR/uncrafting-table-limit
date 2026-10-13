@@ -67,6 +67,13 @@ python3 tools/neoforge_mirror_proxy.py 8903 &          # 本地代理（镜像+�
 - `runClient` 人工验收（提示文案与手感）**待用户进行**。
 - 实现要点：自有 `BlockEntityType` 在 Builder 里直接声明 TF 方块（`BlockEntityTypeAddBlocksEvent` 不需要——那是给既有类型追加方块的）；`UncraftingTableBlockMixin implements EntityBlock` + 三个复制方法（newBlockEntity / setPlacedBy / playerDestroy）；耐久走 DataComponentType 在物品↔BE 之间往返；耗尽 `destroyBlock(pos, false, null, 512)` 不掉落。
 
+### M4 验收结果（2026-10-13 回填）
+
+- `runGameTestServer`：**All 19 required tests passed**（+ 默认配置 `twilightforest:torchberries:1` 解析验证、有料放行并扣减、缺料/数量不足拒绝、创造豁免）。
+- 异常日志扫描：仅剩 VersionChecker PKIX 已知无害项。
+- 实现要点：`ItemCostPolicy` 解析 `namespace:item[:count]`（坏条目跳过+一次性 WARN）；**任一**条目可付即放行（与 M0 既定配置注释一致）；HEAD 判付、RETURN 成功后扣减；扣减只遍历玩家背包 36 格（不含光标/盔甲/副手）；空列表=模式不可用并拒一切拆解。
+- 决策 #4 核对完成：`TFItems.TORCHBERRIES` → 注册名 `twilightforest:torchberries`。
+
 ---
 
 ## 三、已核对的硬事实（证据：发布版 jar + 上游源码）
