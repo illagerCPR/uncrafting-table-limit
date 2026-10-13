@@ -6,5 +6,6 @@
   "message.uncraftinglimit.durability_exhausted": "This uncrafting table has no durability left",
   "message.uncraftinglimit.durability_destroyed": "The uncrafting table crumbled: its durability ran out",
   "message.uncraftinglimit.item_cost_missing": "Uncrafting costs %s \u00d7 %s",
-  "message.uncraftinglimit.item_cost_unavailable": "ITEM_COST mode is not configured (item_cost_entries is empty)"
+  "message.uncraftinglimit.item_cost_unavailable": "ITEM_COST mode is not configured (item_cost_entries is empty)",
+  "overlay.uncraftinglimit.cooldown_waiting": "Uncrafting cooldown: %s"
 }

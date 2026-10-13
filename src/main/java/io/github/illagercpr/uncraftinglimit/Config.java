@@ -25,6 +25,7 @@ public final class Config {
 	public final ModConfigSpec.EnumValue<LimitMode> mode;
 	public final ModConfigSpec.BooleanValue exemptCreative;
 	public final ModConfigSpec.BooleanValue notifyPlayer;
+	public final ModConfigSpec.BooleanValue feedbackSound;
 	public final ModConfigSpec.IntValue feedbackMinInterval;
 
 	// ---- cooldown ----
@@ -60,6 +61,11 @@ public final class Config {
 				.comment("If true, the player receives an action bar message when an uncrafting is refused.")
 				.translation("uncraftinglimit.config.notify_player")
 				.define("notify_player", true);
+		this.feedbackSound = builder
+				.comment("If true, a sound cue plays when an uncrafting is refused. The action bar text alone",
+						"can be hard to notice while the table's GUI is open.")
+				.translation("uncraftinglimit.config.feedback_sound")
+				.define("feedback_sound", true);
 		this.feedbackMinInterval = builder
 				.comment("Minimum amount of ticks between two refusal messages, to avoid spamming the action bar.")
 				.translation("uncraftinglimit.config.feedback_min_interval")

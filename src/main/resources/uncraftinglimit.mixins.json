@@ -7,6 +7,10 @@
     "UncraftingMenuMixin",
     "UncraftingTableBlockMixin"
   ],
+  "client": [
+    "AbstractContainerScreenAccessor",
+    "UncraftingScreenMixin"
+  ],
   "injectors": {
     "defaultRequire": 1
   }

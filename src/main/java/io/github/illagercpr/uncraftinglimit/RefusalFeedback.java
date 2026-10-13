@@ -1,6 +1,8 @@
 package io.github.illagercpr.uncraftinglimit;
 
 import net.minecraft.network.chat.Component;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 
@@ -28,11 +30,17 @@ public final class RefusalFeedback {
 	}
 
 	/**
-	 * Shows {@code message} on the player's action bar unless the per-player minimum
-	 * interval has not elapsed yet.
+	 * Notifies the player about a refusal (action bar message and/or sound cue) unless the
+	 * per-player minimum interval has not elapsed yet. Text and sound have independent
+	 * config switches but share one rate limit.
 	 */
 	public static void notifyDenied(Player player, Level level, Supplier<Component> message) {
-		if (!Config.SPEC.isLoaded() || !Config.INSTANCE.notifyPlayer.get()) {
+		if (!Config.SPEC.isLoaded()) {
+			return;
+		}
+		boolean notifyText = Config.INSTANCE.notifyPlayer.get();
+		boolean playSound = Config.INSTANCE.feedbackSound.get();
+		if (!notifyText && !playSound) {
 			return;
 		}
 		long now = level.getGameTime();
@@ -42,7 +50,14 @@ public final class RefusalFeedback {
 			return;
 		}
 		LAST_SENT_GAME_TIME.put(player.getUUID(), now);
-		player.displayClientMessage(message.get(), true);
+		if (notifyText) {
+			player.displayClientMessage(message.get(), true);
+		}
+		if (playSound) {
+			// The action bar text alone is easy to miss while the table GUI is open; the
+			// villager "no" carries the refusal even when the player is not reading.
+			player.playNotifySound(SoundEvents.VILLAGER_NO, SoundSource.PLAYERS, 0.8F, 1.0F);
+		}
 		if (LAST_SENT_GAME_TIME.size() > MAX_TRACKED_PLAYERS) {
 			LAST_SENT_GAME_TIME.entrySet().removeIf(entry -> now - entry.getValue() > PRUNE_AFTER_TICKS);
 		}
