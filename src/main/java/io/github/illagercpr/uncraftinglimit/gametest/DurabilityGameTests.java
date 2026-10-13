@@ -134,6 +134,25 @@ public final class DurabilityGameTests {
 	}
 
 	@GameTest(template = "smoke")
+	public static void updateTagCarriesDurability(final GameTestHelper helper) {
+		placeTable(helper);
+		UncraftingTableBlockEntity table = tableAt(helper);
+		table.setRemainingDurability(77);
+
+		var tag = table.getUpdateTag(helper.getLevel().registryAccess());
+		helper.assertTrue(tag.contains("DurabilityRemaining") && tag.getInt("DurabilityRemaining") == 77,
+				"the update tag pushed to clients must carry the remaining durability");
+
+		// The vanilla default onDataPacket applies the tag through loadWithComponents,
+		// so a client-side block entity rebuilt from this tag shows the same value.
+		table.setRemainingDurability(12);
+		table.loadWithComponents(tag, helper.getLevel().registryAccess());
+		helper.assertTrue(table.remainingDurability() == 77,
+				"applying the update tag must restore the durability value");
+		helper.succeed();
+	}
+
+	@GameTest(template = "smoke")
 	public static void durabilityTravelsWithDrops(final GameTestHelper helper) {
 		placeTable(helper);
 		ServerPlayer player = createPlayer(helper);

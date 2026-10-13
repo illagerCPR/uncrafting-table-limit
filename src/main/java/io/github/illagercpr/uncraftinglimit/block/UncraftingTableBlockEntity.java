@@ -12,6 +12,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
@@ -46,6 +47,7 @@ public class UncraftingTableBlockEntity extends BlockEntity {
 	public void setRemainingDurability(int value) {
 		this.remainingDurability = Math.max(0, value);
 		this.setChanged();
+		this.syncToClient();
 	}
 
 	/** Consumes one use and handles the warning threshold plus the depletion behaviour. */
@@ -53,6 +55,7 @@ public class UncraftingTableBlockEntity extends BlockEntity {
 		int perUse = Config.INSTANCE.durabilityPerUse.get();
 		this.remainingDurability = Math.max(0, this.remainingDurability - perUse);
 		this.setChanged();
+		this.syncToClient();
 
 		Level level = this.level;
 		BlockPos pos = this.worldPosition;
@@ -77,6 +80,21 @@ public class UncraftingTableBlockEntity extends BlockEntity {
 	/** Writes the remaining durability onto an item stack (drop side). */
 	public void writeDurabilityTo(ItemStack stack) {
 		stack.set(UncraftingDataComponents.DURABILITY.get(), this.remainingDurability);
+	}
+
+	/** Pushes the current durability to the clients tracking this block entity. */
+	private void syncToClient() {
+		Level level = this.level;
+		if (level != null) {
+			level.sendBlockUpdated(this.worldPosition, this.getBlockState(), this.getBlockState(), Block.UPDATE_CLIENTS);
+		}
+	}
+
+	@Override
+	public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
+		// The save payload is tiny (one int) and lets the client GUI show the remaining
+		// durability live; the vanilla default onDataPacket applies it on the client.
+		return this.saveWithoutMetadata(registries);
 	}
 
 	@Override

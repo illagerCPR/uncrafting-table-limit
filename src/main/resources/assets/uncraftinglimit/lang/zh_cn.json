@@ -7,5 +7,7 @@
   "message.uncraftinglimit.durability_destroyed": "拆解台耐久耗尽，碎裂了",
   "message.uncraftinglimit.item_cost_missing": "拆解需要 %s 个 %s",
   "message.uncraftinglimit.item_cost_unavailable": "物品代价模式未配置（item_cost_entries 为空）",
-  "overlay.uncraftinglimit.cooldown_waiting": "拆解冷却：%s"
+  "overlay.uncraftinglimit.cooldown_waiting": "拆解冷却：%s",
+  "overlay.uncraftinglimit.durability_remaining": "拆解台耐久：剩余 %s 次",
+  "overlay.uncraftinglimit.item_cost": "拆解代价：%s × %s"
 }
