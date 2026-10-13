@@ -81,6 +81,7 @@ python3 tools/neoforge_mirror_proxy.py 8903 &          # 本地代理（镜像+�
 - 发布提交 `08721a5` CI 绿（冷缓存全流程：build + runGameTestServer）。
 - tag `v1.0.0` GPG 签名（密钥指纹核对无误）并推送；GitHub Release 已发布并附 `uncraftinglimit-1.0.0.jar`：<https://github.com/illagerCPR/uncrafting-table-limit/releases/tag/v1.0.0>。
 - `runClient` 人工验收（动作栏文案与手感）**仍待用户进行**。
+- **1.0.1（2026-10-13）**：真机测试发现许可协议元数据错误——`LICENSE` 文件实为 **LGPL-2.1**，而 `mod_license` 被误写成 GPL-3.0（M0 计划阶段误记所致，docs/01/02 已勘误）。修正后升版 1.0.1 发布：提交 `c2bff22` CI 绿，tag `v1.0.1` 签名，[Release](https://github.com/illagerCPR/uncrafting-table-limit/releases/tag/v1.0.1) 附 jar。教训：**外部输入的仓库事实（如 LICENSE）要在落文档前实读文件核对**。另：真机反馈"动作栏提示在 GUI 下不显眼"——改进方案讨论中，未实现。
 
 ---
 
