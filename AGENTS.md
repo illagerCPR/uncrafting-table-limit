@@ -60,6 +60,13 @@ python3 tools/neoforge_mirror_proxy.py 8903 &          # 本地代理（镜像+�
 - `runClient` 人工验收（提示文案与手感）**待用户进行**。
 - CI：M1 批次（`2d5e614`）已绿（冷缓存验证 vendored `.module` 修复有效）。
 
+### M3 验收结果（2026-10-13 回填）
+
+- `runGameTestServer`：**All 14 required tests passed**（M1/M2 九项 + BE 织入断言 `getBlockEntity(pos) != null` + G6 逐次扣减 + G7 耗尽销毁（destroy_on_deplete=true）+ disable 模式耗尽后拒取 + 耐久随掉落物往返（挖掉带组件 → 放回恢复））。
+- 异常日志扫描：仅剩 VersionChecker PKIX 已知无害项。
+- `runClient` 人工验收（提示文案与手感）**待用户进行**。
+- 实现要点：自有 `BlockEntityType` 在 Builder 里直接声明 TF 方块（`BlockEntityTypeAddBlocksEvent` 不需要——那是给既有类型追加方块的）；`UncraftingTableBlockMixin implements EntityBlock` + 三个复制方法（newBlockEntity / setPlacedBy / playerDestroy）；耐久走 DataComponentType 在物品↔BE 之间往返；耗尽 `destroyBlock(pos, false, null, 512)` 不掉落。
+
 ---
 
 ## 三、已核对的硬事实（证据：发布版 jar + 上游源码）
@@ -91,6 +98,12 @@ python3 tools/neoforge_mirror_proxy.py 8903 &          # 本地代理（镜像+�
 - `FakePlayerFactory.getMinecraft(ServerLevel)` 签名不涉及 authlib（可直接引用）；返回**共享实例**，测试间必须清理菜单/背包/经验/能力。
 - `AbstractContainerMenu.slots` 是 `public final NonNullList<Slot>`（父类公开字段，`getSlot(int)` 也是 public）——mixin 里用 `(AbstractContainerMenu)(Object)this` 转型即可访问，无需 accessor mixin。
 - `Player` 没有 `setExperienceLevels`，只有 `giveExperienceLevels(int)`（字段 `experienceLevel` 本身是 public）。
+- `DeferredRegister.DataComponents`（`createDataComponents` 的返回类型）**是子类**——`registerComponentType` 只在子类上，字段别用 `DeferredRegister<DataComponentType<?>>` 父类类型接。
+- 数据组件（DataComponentType）注册：`builder.persistent(Codec)` + `networkSynchronized(ByteBufCodecs.VAR_INT)` + `build()`（`net.minecraft.core.component.DataComponentType$Builder`）。
+- 物品↔BE 组件传递链（1.21.1 实测）：**放置侧** `BlockItem.place` 会调用 `Block#setPlacedBy(Level, BlockPos, BlockState, LivingEntity, ItemStack)`（Block 默认空实现，覆盖后从 ItemStack 读组件写进 BE）；**挖掘侧** `Block#playerDestroy` 原版体 = `awardStat(BLOCK_MINED)` + `causeFoodExhaustion(0.005F)` + `dropResources(...)`——要改掉落物就复制这个方法体并用 `Block.getDrops(state, serverLevel, pos, be, entity, tool)` + `Block.popResource` 自己发。BE 侧桥接用 `applyImplicitComponents(DataComponentInput)`（读）与 `collectImplicitComponents(Builder)`（写，供创造拾取）；`BlockEntity#applyComponentsFromItemStack` 可直接测试往返。
+- **自有 BlockEntityType 不需要 `BlockEntityTypeAddBlocksEvent`**：`BlockEntityType.Builder.of(supplier, blocks...).build(null)` 直接声明合法方块；该事件是给"别人的类型"追加方块用的（注册键 `Registries.BLOCK_ENTITY_TYPE`）。
+- `BlockEntity` 的 `loadWithComponents` 会先 `loadAdditional` 再应用组件——字段初始化顺序注意；`Level.getBlockEntity(pos)` 是 IMMEDIATE，**EntityBlock 的 BE 会按需懒创建**（老存档已放置的方块无需迁移）。
+- `Level.destroyBlock` 只有 4 参重载 `(pos, drop, entity, recursionLeft)`（原版爆炸用 512）。
 - `IBlockExtension` **没有** `canPlayerBreakBlockInPosition` 之类的方法，别凭记忆写。
 
 ### 3.3 Mixin
@@ -99,6 +112,8 @@ python3 tools/neoforge_mirror_proxy.py 8903 &          # 本地代理（镜像+�
 - 目标类在 `twilightforest` 包（非 MC 包），`@Mixin` 必须 `remap = false`。
 - `@Shadow` 可访问 `UncraftingMenu` 的 `private final` 字段（`uncraftingMatrix` / `level` / `player` / `tinkerResult` / `positionData`）；`assemblyMatrix` 与 `tinkerInput` 是 `public final`，可直接用。
 - 本工程未配置 refmap / 注解处理器 —— 若 Mixin 静默不生效，先怀疑这里（见第五节验收纪律）。
+- **Mixin 可给目标类"加接口+加方法"**：`@Mixin(TF 类) implements EntityBlock`（vanilla 接口，无需 remap）+ 在 mixin 里写**不加 @Unique 的 public 方法**（逐字复制进目标类）。只有接口里的方法能标 `@Override`。M3 用它把纯 Block 变成 EntityBlock 并覆盖 newBlockEntity/setPlacedBy/playerDestroy。
+- **@Inject 不能作用于目标类"继承来的"方法**（如 Block.playerDestroy 对 UncraftingTableBlock 是继承的，注入会找不到方法）——只能用"复制方法覆盖"的路子。
 
 ---
 

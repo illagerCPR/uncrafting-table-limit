@@ -23,6 +23,8 @@ public final class UncraftingLimit {
 	public UncraftingLimit(IEventBus modBus, ModContainer container) {
 		container.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
 		UncraftingAttachments.REGISTRY.register(modBus);
+		UncraftingBlockEntities.REGISTRY.register(modBus);
+		UncraftingDataComponents.REGISTRY.register(modBus);
 		modBus.addListener(this::onCommonSetup);
 	}
 

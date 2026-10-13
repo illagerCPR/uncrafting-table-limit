@@ -1,5 +1,6 @@
 package io.github.illagercpr.uncraftinglimit.mixin;
 
+import io.github.illagercpr.uncraftinglimit.block.UncraftingTableBlockEntity;
 import io.github.illagercpr.uncraftinglimit.Config;
 import io.github.illagercpr.uncraftinglimit.LimitMode;
 import io.github.illagercpr.uncraftinglimit.RefusalFeedback;
@@ -10,6 +11,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.ContainerLevelAccess;
 import net.minecraft.world.inventory.CraftingContainer;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.level.Level;
@@ -67,6 +69,10 @@ public abstract class UncraftingMenuMixin {
 	@Shadow
 	@Final
 	public net.minecraft.world.Container tinkerInput;
+
+	@Shadow
+	@Final
+	private ContainerLevelAccess positionData;
 
 	/** Tinker input item count, armed at HEAD for a permitted take; -1 otherwise. */
 	@Unique
@@ -150,8 +156,9 @@ public abstract class UncraftingMenuMixin {
 		return switch (mode) {
 			case COOLDOWN -> this.uncraftinglimit$refuseDuringCooldown(clicker);
 			case DISABLED -> this.uncraftinglimit$refuseDisabled(clicker);
-			// Remaining modes arrive with their own batches (M3+).
-			case DURABILITY, ITEM_COST -> false;
+			case DURABILITY -> this.uncraftinglimit$refuseDepletedTable(clicker);
+			// Remaining modes arrive with their own batch (M4).
+			case ITEM_COST -> false;
 		};
 	}
 
@@ -188,12 +195,34 @@ public abstract class UncraftingMenuMixin {
 		return true;
 	}
 
+	/** Mode DURABILITY: a table without any remaining durability refuses further use. */
+	@Unique
+	private boolean uncraftinglimit$refuseDepletedTable(Player clicker) {
+		if (this.uncraftinglimit$isCreativeExempt(clicker)) {
+			return false;
+		}
+		boolean depleted = this.positionData.evaluate((level, pos) ->
+				level.getBlockEntity(pos) instanceof UncraftingTableBlockEntity table
+						&& table.remainingDurability() <= 0, false);
+		if (!depleted) {
+			return false;
+		}
+		RefusalFeedback.notifyDenied(clicker, this.level,
+				() -> Component.translatable("message.uncraftinglimit.durability_exhausted"));
+		return true;
+	}
+
 	/** A full uncrafting just happened; each limit mode records what it needs. */
 	@Unique
 	private void uncraftinglimit$onUncraftingSuccess(Player clicker) {
 		switch (Config.INSTANCE.mode.get()) {
 			case COOLDOWN -> clicker.setData(UncraftingAttachments.LAST_UNCRAFT_TIME, this.level.getGameTime());
-			case DISABLED, DURABILITY, ITEM_COST -> {
+			case DURABILITY -> this.positionData.execute((level, pos) -> {
+				if (level.getBlockEntity(pos) instanceof UncraftingTableBlockEntity table) {
+					table.consumeUse(clicker);
+				}
+			});
+			case DISABLED, ITEM_COST -> {
 				// handled by their own batches
 			}
 		}
