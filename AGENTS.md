@@ -81,7 +81,8 @@ python3 tools/neoforge_mirror_proxy.py 8903 &          # 本地代理（镜像+�
 - 发布提交 `08721a5` CI 绿（冷缓存全流程：build + runGameTestServer）。
 - tag `v1.0.0` GPG 签名（密钥指纹核对无误）并推送；GitHub Release 已发布并附 `uncraftinglimit-1.0.0.jar`：<https://github.com/illagerCPR/uncrafting-table-limit/releases/tag/v1.0.0>。
 - `runClient` 人工验收（动作栏文案与手感）**仍待用户进行**。
-- **1.0.1（2026-10-13）**：真机测试发现许可协议元数据错误——`LICENSE` 文件实为 **LGPL-2.1**，而 `mod_license` 被误写成 GPL-3.0（M0 计划阶段误记所致，docs/01/02 已勘误）。修正后升版 1.0.1 发布：提交 `c2bff22` CI 绿，tag `v1.0.1` 签名，[Release](https://github.com/illagerCPR/uncrafting-table-limit/releases/tag/v1.0.1) 附 jar。教训：**外部输入的仓库事实（如 LICENSE）要在落文档前实读文件核对**。另：真机反馈"动作栏提示在 GUI 下不显眼"——改进方案讨论中，未实现。
+- **1.0.1（2026-10-13）**：真机测试发现许可协议元数据错误——`LICENSE` 文件实为 **LGPL-2.1**，而 `mod_license` 被误写成 GPL-3.0（M0 计划阶段误记所致，docs/01/02 已勘误）。修正后升版 1.0.1 发布：提交 `c2bff22` CI 绿，tag `v1.0.1` 签名，[Release](https://github.com/illagerCPR/uncrafting-table-limit/releases/tag/v1.0.1) 附 jar。教训：**外部输入的仓库事实（如 LICENSE）要在落文档前实读文件核对**。
+- **1.1.0（2026-10-13）**：针对真机反馈"动作栏提示在 GUI 下不显眼"，实现 ①拒绝音效（`feedback_sound`，默认开，与 `notify_player` 独立共享限流）②**GUI 内冷却倒计时**——TF `UncraftingScreen.renderLabels` TAIL 注入，在 TF 自家警告行（`imageHeight - 96 + 2`，深红）绘制；冷却时间戳经附件 `sync((holder, player) -> holder == player, ByteBufCodecs.VAR_LONG)` 推送到客户端（setData 字节码确认自动触发），客户端用自己的 gameTime 实时倒数，无逐 tick 包。客户端 mixin 走 mixins.json 的 `client` 段（专用服务器不加载）；GUI 尺寸经 `AbstractContainerScreenAccessor`（imageWidth/imageHeight 是继承字段，@Shadow 不可用）。提交 `e3801ad` CI 绿，tag `v1.1.0`，[Release](https://github.com/illagerCPR/uncrafting-table-limit/releases/tag/v1.1.0) 附 jar。`DISABLED`/`DURABILITY`/`ITEM_COST` 的 GUI 内文字未做（音效+动作栏已够用），留作后续候选。
 
 ---
 
