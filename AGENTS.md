@@ -30,14 +30,14 @@ export JAVA_HOME=/home/illager_aris/.gradle/jdks/jdk-21.0.12.1+1
 # 常规构建（离线依赖，TF 从 libs/ 取）
 ./gradlew -PofflineDeps=true build
 
-# 运行 GameTest / 客户端（完整解锁链，四个参数缺一不可）
+# 运行 GameTest / 客户端（离线解锁链）
 python3 tools/neoforge_mirror_proxy.py 8903 &          # 本地代理（镜像+本地缓存+种子目录）
-./gradlew -PofflineDeps=true -PmcLibsFallback=true -PneoforgeProxy=http://127.0.0.1:8903/releases runGameTestServer
+./gradlew -PofflineDeps=true -PneoforgeProxy=http://127.0.0.1:8903/releases runGameTestServer
 ```
 
 - `-PofflineDeps=true`：TF 从 `libs/`（gitignored）取，不走 CurseMaven。CI 上不要加这个参数。
-- `-PmcLibsFallback=true`：应用 `gradle/mc-libs-fallback.gradle`（用 `python3 tools/generate_mc_libs_fallback.py` 重新生成）。CI 上不要加。
 - `-PneoforgeProxy=...`：NeoForge 官方仓库**整体**由本地代理替代（不再并列官方源）。CI 上不要加。
+- `-PmcLibsFallback=true`：**M1 起不再需要**（vendored `.module` 让真实依赖图恢复生效，见第四节陷阱 13/14），保留作应急。CI 上不要加。
 - `-PuseQluMirror`：把 qlu 镜像加进仓库列表（默认关闭，见第四节陷阱）。
 
 ### M0 验收结果（2026-10-13 回填）
@@ -45,6 +45,13 @@ python3 tools/neoforge_mirror_proxy.py 8903 &          # 本地代理（镜像+�
 - `runGameTestServer`：**All 1 required tests passed**；模组列表含 Minecraft / NeoForge / RDPMouse / TF 4.8.3345 / uncraftinglimit 0.1.0；`require=1` 下 Mixin 配置加载无应用错误（探针触发归 M1 的真实交互测试）。
 - 日志仅两条无害项：首启生成 `server.properties` 的 NoSuchFile、FML VersionChecker 更新检查被反代 MITM 的 PKIX 失败。
 - `build` 产出 `uncraftinglimit-0.1.0.jar`。
+
+### M1 验收结果（2026-10-13 回填）
+
+- `runGameTestServer`：**All 6 required tests passed**（smoke + G1 开菜单/56 槽布局 + G2 拆解预览 + G3 首拆成功→立刻再拆被拒 + G4 冷却过期可拆并刷新 + G8 创造豁免）。G3 的"拒绝+不刷新时间戳"与时间戳写入本身构成 Mixin 生效的行为学证明。
+- 异常日志扫描：仅剩 VersionChecker PKIX 一项已知无害。
+- `runClient` 人工验收（动作栏文案与手感）**待用户进行**。
+- `build` 产出 jar；本地链路已简化为两个 `-P` 参数（mcLibsFallback 不再需要）。
 
 ---
 
@@ -55,9 +62,11 @@ python3 tools/neoforge_mirror_proxy.py 8903 &          # 本地代理（镜像+�
 - 发布版类名/签名与 GitHub `1.21.1` 分支源码一致（`javap -p` 逐类核对）。
 - `twilightforest:uncrafting_table` → `twilightforest.block.UncraftingTableBlock extends Block`，**没有 BlockEntity**。
 - `twilightforest:uncrafting` → `twilightforest.inventory.UncraftingMenu extends RecipeBookMenu`，工厂 `UncraftingMenu::fromNetwork`。
-- 槽位布局（56 槽）：`0` = tinkerInput；`1` = `UncraftingResultSlot`（出口）；`2–10` = 内部 `UncraftingContainer`（`UncraftingSlot` 包装，`getContainerSlot()` 为 `300000+i`）；`11–19` = `assemblyMatrix`（`AssemblySlot`）；`20–46` 主背包；`47–55` 快捷栏。
+- 槽位布局（56 槽）：`0` = tinkerInput；`1` = `UncraftingResultSlot`（出口）；`2–10` = 内部 `UncraftingContainer`（`UncraftingSlot` 包装，容器内槽位即 `0–8`；**拆解格在 GUI 的 x 坐标是 `300000+i`，即屏幕外不可点**）；`11–19` = `assemblyMatrix`（`AssemblySlot`，纯 `Slot`，重铸路径完全不受限）；`20–46` 主背包；`47–55` 快捷栏。
 - `clicked(int,int,ClickType,Player)` 是**所有取出动作的唯一必经点**；`UncraftingResultSlot#onTake` 是内部类，**不触发任何 NeoForge 事件** → 限制必须用 Mixin。
-- **槽位重定向陷阱**：`clicked` 开头若玩家点的是**空的 assemblyMatrix 槽**且手上无物，会执行 `slotNum -= 9`，把点击重定向到内部拆解格。因此判定"是否在从拆解格取物"必须同时覆盖重定向前后的两种槽位身份（`slots.get(slotNum).container` 与 `slots.get(slotNum - 9).container`）。
+- **槽位重定向（精确条件，M1 源码实读）**：`slotNum > 0 && slots.get(slotNum).container == assemblyMatrix && player.containerMenu.getCarried().isEmpty() && !slots.get(slotNum).hasItem()` 成立时，若再满足 `assemblyMatrix.isEmpty() && (clickType != SWAP || 热键栏 mouseButton 槽为空)` 则 `slotNum -= 9`。拆解格唯一合法入口就是这条重定向（直接点击 2–10 只可能是改过的客户端）。限制逻辑必须逐行复刻，漏一条即漏拦截。
+- **一次重定向取物 = 一次完整拆解（M1 关键发现）**：`UncraftingSlot#onTake` 会 ①按整次拆解扣一次经验 `uncraftingCost`；②把剩余产物**复制**进 assemblyMatrix（此后 assemblyMatrix 非空，重定向条件不再成立）；③从 tinkerInput 扣 `numberOfInputItems` 个输入。所以冷却的"一次拆解"天然对应一次重定向取物，无需会话追踪。
+- **成功检测陷阱**：`UncraftingInputContainer#removeItem` 会回调 `slotsChanged(tinkerInput)` → `slotsChanged` 第一分支**清空并重灌整个拆解格**。因此"取物成功"不能用 HEAD/RETURN 对比拆解格数量（取完立即恢复满格）——必须对比 **tinkerInput 数量递减**（onTake 必扣输入；TF 自身的拒绝路径不碰输入）。
 - `clicked` 里另有 4 处 `return` 早退：重铸经验不足 / `disableUncraftingOnly` 拦截 / 拆解经验不足 / 产物被 `isMarked` 标记。
 - **`TFConfig.disableUncrafting`（配置名 `disableUncrafting`）在源码中从未被读取**——只有声明、初始化与网络同步三处。TF 实际只有 `disableEntireTable` 一个粗粒度开关。
 - TF **不使用 Mixin**：自定义转换走独立库 `twilightforest-asm`（`FMLModType: LIBRARY` + `ICoreMod`），10 个 transformer 全部针对原版类；jar 内无 mixin 配置，`accesstransformer.cfg` 未触碰拆解台相关类。
@@ -69,6 +78,12 @@ python3 tools/neoforge_mirror_proxy.py 8903 &          # 本地代理（镜像+�
 - `PlayerInteractEvent$RightClickBlock`：可取消，`setUseBlock(TriState)` / `getCancellationResult()`。
 - `EventBusSubscriber` 在 `net.neoforged.fml.common`（**不在** neoforge jar 里，在 `fancymodloader/loader`），属性 `value()` / `modid()` / `bus()`，`Bus` 枚举只有 `GAME` / `MOD` 且默认 `GAME`。
 - `ModConfigSpec.Builder#defineEnum(String, V)` 存在（`EnumValue`）；`defineListAllowEmpty(String, List, Predicate)` 存在。
+- `ModConfigSpec.ConfigValue#set(T)` 运行时改值可用（GameTest 里切换配置用，记得恢复）。
+- Data Attachment：`AttachmentType.Builder#serialize(Codec)` / `#copyOnDeath()` 均存在；`NeoForgeRegistries.Keys.ATTACHMENT_TYPES` + `DeferredRegister.create(ResourceKey, modid)` 注册；`IAttachmentHolder#getData(Supplier<AttachmentType<T>>)` 默认方法可直接用。
+- **`FakePlayer.openMenu(MenuProvider, Consumer)` 被重写为无条件 no-op**（返回 empty 什么都不做）——GameTest 里不能让假玩家"打开"菜单，应直接 `new UncraftingMenu(...)`（与 `UncraftingTableBlock#getMenuProvider` 的 lambda 同路径）再手动 `player.containerMenu = menu`。
+- `FakePlayerFactory.getMinecraft(ServerLevel)` 签名不涉及 authlib（可直接引用）；返回**共享实例**，测试间必须清理菜单/背包/经验/能力。
+- `AbstractContainerMenu.slots` 是 `public final NonNullList<Slot>`（父类公开字段，`getSlot(int)` 也是 public）——mixin 里用 `(AbstractContainerMenu)(Object)this` 转型即可访问，无需 accessor mixin。
+- `Player` 没有 `setExperienceLevels`，只有 `giveExperienceLevels(int)`（字段 `experienceLevel` 本身是 public）。
 - `IBlockExtension` **没有** `canPlayerBreakBlockInPosition` 之类的方法，别凭记忆写。
 
 ### 3.3 Mixin
@@ -91,10 +106,12 @@ python3 tools/neoforge_mirror_proxy.py 8903 &          # 本地代理（镜像+�
 6. **`processResources` 的 `expand` 是全量模板替换**：`neoforge.mods.toml` 里用到的每个占位符都必须在 `expanded` 映射里，否则 `MissingPropertyException`。
 7. **编译期不要碰 `com.mojang.authlib`**（如 `Player#getGameProfile()`）——该包不在 NeoForge 编译类路径上，用 `player.getName().getString()` 代替。
 8. **GameTest 模板必须是二进制 `.nbt`**：`tools/make_empty_structure.py` 生成（默认 5×5×3 → `src/main/resources/data/uncraftinglimit/structure/smoke.nbt`）；`.snbt` 只在 IDE 目录生效且丢命名空间。
-9. **`minecraft-dependencies` 变体选择落空是隐形大坑**：本机环境下 Gradle 给 `net.neoforged:minecraft-dependencies` 选中了无依赖的 `platformDependencies` 变体——表现是三层连锁：①`compileClasspath` 缺 `com.mojang:*`（报"无法访问 Message/authlib"）；②运行 `-cp` 里也缺；③**MDG 的 legacyClasspath 文件里没有 MC 游戏库**，游戏层报 `NoClassDefFoundError: com/mojang/serialization/DynamicOps`。解法 = `-PmcLibsFallback`（显式声明游戏库 + 挂钩 `write*LegacyClasspath` 任务补写）。
+9. **`minecraft-dependencies` 变体选择落空是隐形大坑（M1 已查明根因）**：当 Gradle 拿不到该构件的真实 `.module`（见陷阱 13）时，会退化到只有空 `platformDependencies` 变体的假 POM（M0 时代由本地代理合成）——三层连锁：①`compileClasspath` 缺 `com.mojang:*`（报"无法访问 Message/authlib"）；②运行 `-cp` 里也缺；③MDG 的 legacyClasspath 文件缺 MC 游戏库，游戏层报 `NoClassDefFoundError`。M1 起由 vendored `.module`（陷阱 13）根治，`-PmcLibsFallback`（显式声明游戏库 + 挂钩 `write*LegacyClasspath` 任务补写）降级为应急手段。
 10. **legacyClasspath 文件是每行一个路径**，不是冒号拼接——按冒号写FML 一条都读不进去（文件格式错了不报错，静默回到缺类崩溃）。
 11. **`DevLaunch` 只在官方 maven 有**（GitHub 仓库无 1.0.2 tag、镜像/Central 全无）：从 GitHub 克隆源码用 JDK21 `javac --release 8` 手编译单文件 `Main.java` + 手写 POM，放进代理的种子目录（**点分组布局** `.gradle-cache-seed/net.neoforged/DevLaunch/1.0.2/<hash>/`，代理按 hash 子目录扫描）。
 12. **`NeoForge.EVENT_BUS.register(this)` 在类里没有任何 `@SubscribeEvent` 方法时直接抛 IllegalArgumentException**——M0 主类只注册 mod bus 监听即可，GAME bus 事件等真正需要时用独立的 `@EventBusSubscriber` 类。
+13. **`net.neoforged:minecraft-dependencies:1.21.1` 已从官方 maven 消失（2026-10-13 实锤）**：官方源与 `neoforged.forgecdn.net` 镜像上 `.module`/`.pom` 双双 404，而 `neoforge`/`neoform` 照常 200——全球冷缓存 NeoForge 1.21.1 项目都会死于 `Could not find net.neoforged:minecraft-dependencies`。解法：真品 `.module` **内嵌进仓库** `gradle/repo/`（151KB），settings 里以 `includeModule('net.neoforged','minecraft-dependencies')` + `metadataSources { gradleMetadata() }` 的 file 仓库供出（见 `gradle/repo/README.md`）。**升级 MC/NeoForge 前必须从热缓存重新内嵌对应版本**。
+14. **诊断 CI 依赖故障的对照法**：①用 `neoforged.forgecdn.net`（官方 CDN 直连镜像）做可用性对照，判断"网络不可达"还是"构件真的没了"；②反编译 MDG 的 `RepositoriesPlugin`（javap -c）看它自己给内部配置建了什么形状的仓库——PREFER_SETTINGS 接管仓库后，内部配置的解析形状必须照抄。CI 首次失败时"只搜 .pom 不搜 .module"是那次运行的表象，不必纠结复现。
 
 ---
 
