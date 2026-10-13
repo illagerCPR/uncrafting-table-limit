@@ -7,6 +7,7 @@ import io.github.illagercpr.uncraftinglimit.RefusalFeedback;
 import io.github.illagercpr.uncraftinglimit.UncraftingAttachments;
 import io.github.illagercpr.uncraftinglimit.UncraftingLimit;
 import io.github.illagercpr.uncraftinglimit.policy.CooldownPolicy;
+import io.github.illagercpr.uncraftinglimit.policy.ItemCostPolicy;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -14,6 +15,7 @@ import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.ContainerLevelAccess;
 import net.minecraft.world.inventory.CraftingContainer;
 import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -24,6 +26,9 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import twilightforest.inventory.UncraftingContainer;
 import twilightforest.inventory.UncraftingMenu;
+
+import java.util.List;
+import java.util.Optional;
 
 /**
  * Single chokepoint for every uncrafting action.
@@ -77,6 +82,10 @@ public abstract class UncraftingMenuMixin {
 	/** Tinker input item count, armed at HEAD for a permitted take; -1 otherwise. */
 	@Unique
 	private int uncraftinglimit$takeSnapshot = -1;
+
+	/** The cost entry the current take has to pay, resolved at HEAD; null otherwise. */
+	@Unique
+	private ItemCostPolicy.CostEntry uncraftinglimit$pendingCost = null;
 
 	@Inject(method = "clicked", at = @At("HEAD"), cancellable = true, require = 1)
 	private void uncraftinglimit$guardUncrafting(int slotNum, int mouseButton, ClickType clickType, Player clicker, CallbackInfo ci) {
@@ -157,8 +166,7 @@ public abstract class UncraftingMenuMixin {
 			case COOLDOWN -> this.uncraftinglimit$refuseDuringCooldown(clicker);
 			case DISABLED -> this.uncraftinglimit$refuseDisabled(clicker);
 			case DURABILITY -> this.uncraftinglimit$refuseDepletedTable(clicker);
-			// Remaining modes arrive with their own batch (M4).
-			case ITEM_COST -> false;
+			case ITEM_COST -> this.uncraftinglimit$refuseMissingCost(clicker);
 		};
 	}
 
@@ -212,6 +220,31 @@ public abstract class UncraftingMenuMixin {
 		return true;
 	}
 
+	/** Mode ITEM_COST: the take is refused unless the player can pay one configured entry. */
+	@Unique
+	private boolean uncraftinglimit$refuseMissingCost(Player clicker) {
+		this.uncraftinglimit$pendingCost = null;
+		if (this.uncraftinglimit$isCreativeExempt(clicker)) {
+			return false;
+		}
+		List<ItemCostPolicy.CostEntry> entries = ItemCostPolicy.parseEntries(Config.INSTANCE.itemCostEntries.get());
+		Optional<ItemCostPolicy.CostEntry> affordable = ItemCostPolicy.findAffordable(clicker, entries);
+		if (affordable.isEmpty()) {
+			if (!entries.isEmpty()) {
+				ItemCostPolicy.CostEntry example = entries.getFirst();
+				RefusalFeedback.notifyDenied(clicker, this.level, () -> Component.translatable(
+						"message.uncraftinglimit.item_cost_missing",
+						example.count(), new ItemStack(example.item()).getHoverName()));
+			} else {
+				RefusalFeedback.notifyDenied(clicker, this.level,
+						() -> Component.translatable("message.uncraftinglimit.item_cost_unavailable"));
+			}
+			return true;
+		}
+		this.uncraftinglimit$pendingCost = affordable.get();
+		return false;
+	}
+
 	/** A full uncrafting just happened; each limit mode records what it needs. */
 	@Unique
 	private void uncraftinglimit$onUncraftingSuccess(Player clicker) {
@@ -222,8 +255,14 @@ public abstract class UncraftingMenuMixin {
 					table.consumeUse(clicker);
 				}
 			});
-			case DISABLED, ITEM_COST -> {
-				// handled by their own batches
+			case ITEM_COST -> {
+				if (this.uncraftinglimit$pendingCost != null) {
+					ItemCostPolicy.consume(clicker, this.uncraftinglimit$pendingCost);
+					this.uncraftinglimit$pendingCost = null;
+				}
+			}
+			case DISABLED -> {
+				// refusal mode, nothing to record
 			}
 		}
 	}
