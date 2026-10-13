@@ -12,10 +12,13 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.ChunkPos;
 
 /**
  * Durability tracker attached to the Twilight Forest uncrafting table.
@@ -82,11 +85,20 @@ public class UncraftingTableBlockEntity extends BlockEntity {
 		stack.set(UncraftingDataComponents.DURABILITY.get(), this.remainingDurability);
 	}
 
-	/** Pushes the current durability to the clients tracking this block entity. */
+	/**
+	 * Pushes the current durability to the clients tracking this block entity.
+	 *
+	 * <p>{@code Level#sendBlockUpdated} only broadcasts the block STATE; the block entity
+	 * data packet must be sent explicitly, otherwise the client-side GUI keeps showing the
+	 * durability value from the last chunk load.</p>
+	 */
 	private void syncToClient() {
-		Level level = this.level;
-		if (level != null) {
-			level.sendBlockUpdated(this.worldPosition, this.getBlockState(), this.getBlockState(), Block.UPDATE_CLIENTS);
+		if (this.level instanceof ServerLevel serverLevel) {
+			ClientboundBlockEntityDataPacket packet = ClientboundBlockEntityDataPacket.create(this);
+			ChunkPos chunkPos = new ChunkPos(this.worldPosition);
+			for (ServerPlayer player : serverLevel.getChunkSource().chunkMap.getPlayers(chunkPos, false)) {
+				player.connection.send(packet);
+			}
 		}
 	}
 
