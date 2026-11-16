@@ -4,7 +4,7 @@ Minecraft **1.21.1 / NeoForge 21.1.248** 附属模组，前置**暮色森林（T
 
 给暮色森林的拆解台加互斥的可配置使用限制（全局冷却 / 禁止拆解 / 使用耐久 / 物品代价）。需求与决策见 `docs/01-可行性分析.md`，批次计划见 `docs/02-开发计划.md`。
 
-> 环境与工具链层面的通用经验（WSL2 MTU、反代、JDK、javap 核对技巧、GameTest 纪律）见 `~/.dsh/MCDEVWARNS.md`，此处不重复。
+> 环境与工具链层面的通用经验（WSL2 MTU、JDK、javap 核对技巧、GameTest 纪律）见 `~/.dsh/MCDEVWARNS.md`，此处不重复。
 
 ---
 
@@ -43,7 +43,7 @@ python3 tools/neoforge_mirror_proxy.py 8903 &          # 本地代理（镜像+�
 ### M0 验收结果（2026-10-13 回填）
 
 - `runGameTestServer`：**All 1 required tests passed**；模组列表含 Minecraft / NeoForge / RDPMouse / TF 4.8.3345 / uncraftinglimit 0.1.0；`require=1` 下 Mixin 配置加载无应用错误（探针触发归 M1 的真实交互测试）。
-- 日志仅两条无害项：首启生成 `server.properties` 的 NoSuchFile、FML VersionChecker 更新检查被反代 MITM 的 PKIX 失败。
+- 日志仅两条无害项：首启生成 `server.properties` 的 NoSuchFile、FML VersionChecker 更新检查的 PKIX 失败（当时由反代 MITM 引起；反代已于 2026-11-16 停用删除，该失败应不再出现）。
 - `build` 产出 `uncraftinglimit-0.1.0.jar`。
 
 ### M1 验收结果（2026-10-13 回填）
